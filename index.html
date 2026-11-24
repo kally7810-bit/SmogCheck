@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>에코파이썬 - 스마트 대기오염 알림이</title>
+    <!-- Tailwind CSS 로드 -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts (Pretendard / Noto Sans KR) -->
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Noto Sans KR', sans-serif;
+            background-color: #F0F4F8;
+            -webkit-tap-highlight-color: transparent;
+        }
+        /* 부드러운 전환 애니메이션 */
+        .fade-in {
+            animation: fadeIn 0.4s ease-out forwards;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col items-center justify-start sm:justify-center p-4">
+
+    <!-- 모바일 앱 메인 컨테이너 -->
+    <div class="w-full max-w-md bg-white rounded-3xl shadow-xl overflow-hidden border border-slate-100">
+        
+        <!-- 상단 헤더 영역 -->
+        <div class="bg-gradient-to-r from-blue-600 to-indigo-600 p-6 text-white">
+            <div class="flex items-center justify-between">
+                <div>
+                    <span class="text-xs font-semibold uppercase tracking-wider bg-white/20 px-2.5 py-1 rounded-full">에코파이썬 프로젝트</span>
+                    <h1 class="text-2xl font-bold mt-2 tracking-tight">스마트 대기오염 알림이</h1>
+                </div>
+                <div class="text-4xl">🌍</div>
+            </div>
+            <p class="text-blue-100 text-sm mt-1">우리 동네 실시간 미세먼지 & 건강 가이드</p>
+        </div>
+
+        <!-- 지역 선택 컨트롤 영역 -->
+        <div class="p-5 bg-slate-50 border-b border-slate-100">
+            <div class="grid grid-cols-2 gap-3 mb-3">
+                <!-- 시·도 선택 -->
+                <div>
+                    <label for="sidoSelect" class="block text-xs font-bold text-slate-500 mb-1 ml-1">시·도 선택</label>
+                    <select id="sidoSelect" onchange="updateStations()" class="w-full bg-white border border-slate-200 text-slate-800 text-sm rounded-2xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 block p-3 font-medium shadow-sm outline-none">
+                        <!-- JS로 옵션 동적 생성 -->
+                    </select>
+                </div>
+                <!-- 구/측정소 선택 -->
+                <div>
+                    <label for="stationSelect" class="block text-xs font-bold text-slate-500 mb-1 ml-1">구 / 측정소</label>
+                    <select id="stationSelect" class="w-full bg-white border border-slate-200 text-slate-800 text-sm rounded-2xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 block p-3 font-medium shadow-sm outline-none">
+                        <!-- JS로 옵션 동적 생성 -->
+                    </select>
+                </div>
+            </div>
+            
+            <!-- 조회 버튼 -->
+            <button onclick="fetchDustData()" class="w-full bg-blue-600 hover:bg-blue-700 active:scale-[0.98] transition-all text-white font-bold py-3.5 px-4 rounded-2xl shadow-md shadow-blue-200 flex items-center justify-center gap-2 text-base">
+                <span>🔍 대기질 조회 및 분석하기</span>
+            </button>
+        </div>
+
+        <!-- 결과 리포트 출력 영역 -->
+        <div id="resultContainer" class="p-6">
+            <!-- 초기 안내 화면 -->
+            <div id="initialState" class="text-center py-8 text-slate-400">
+                <div class="text-5xl mb-3">🌤️</div>
+                <p class="text-sm font-medium">지역을 선택하고 조회 버튼을 눌러주세요!</p>
+            </div>
+
+            <!-- 분석 결과 카드 (조회 시 표시) -->
+            <div id="reportContent" class="hidden fade-in space-y-5">
+                
+                <!-- 선택 지역 타이틀 & 업데이트 시간 -->
+                <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+                    <div>
+                        <span class="text-xs text-slate-400 font-medium">선택된 측정 지역</span>
+                        <h2 id="selectedLocationTitle" class="text-xl font-extrabold text-slate-800">인천 남동구</h2>
+                    </div>
+                    <span id="statusBadge" class="px-3 py-1.5 rounded-full text-sm font-bold bg-blue-100 text-blue-700">
+                        보통 🙂
+                    </span>
+                </div>
+
+                <!-- 미세먼지 & 초미세먼지 수치 카드 2열 그리드 -->
+                <div class="grid grid-cols-2 gap-3">
+                    <!-- 미세먼지(PM10) 카드 -->
+                    <div id="pm10Card" class="p-4 rounded-2xl border transition-colors bg-slate-50 border-slate-200">
+                        <div class="text-xs font-bold text-slate-500 mb-1">미세먼지 (PM10)</div>
+                        <div class="flex items-baseline gap-1 my-1">
+                            <span id="pm10Value" class="text-2xl font-black text-slate-800">45</span>
+                            <span class="text-xs font-medium text-slate-500">㎍/㎥</span>
+                        </div>
+                        <div id="pm10Grade" class="text-sm font-bold mt-1 text-blue-600">보통 🙂</div>
+                    </div>
+
+                    <!-- 초미세먼지(PM2.5) 카드 -->
+                    <div id="pm25Card" class="p-4 rounded-2xl border transition-colors bg-slate-50 border-slate-200">
+                        <div class="text-xs font-bold text-slate-500 mb-1">초미세먼지 (PM2.5)</div>
+                        <div class="flex items-baseline gap-1 my-1">
+                            <span id="pm25Value" class="text-2xl font-black text-slate-800">22</span>
+                            <span class="text-xs font-medium text-slate-500">㎍/㎥</span>
+                        </div>
+                        <div id="pm25Grade" class="text-sm font-bold mt-1 text-blue-600">보통 🙂</div>
+                    </div>
+                </div>
+
+                <!-- AI 환경 경고 가이드 박스 -->
+                <div id="guideBox" class="p-4 rounded-2xl border-l-4 bg-amber-50 border-amber-500">
+                    <div class="flex items-center gap-1.5 text-xs font-extrabold uppercase tracking-wider mb-1.5 text-amber-800" id="guideTitle">
+                        <span>💬 AI 환경 경고 가이드</span>
+                    </div>
+                    <p id="guideMessage" class="text-sm font-bold leading-relaxed text-slate-800">
+                        문구가 여기에 표시됩니다.
+                    </p>
+                </div>
+
+                <!-- 오늘 나가기 좋은 시간 추천 카드 -->
+                <div id="goldenTimeCard" class="p-4 rounded-2xl bg-indigo-50/70 border border-indigo-100 transition-colors">
+                    <div class="flex items-center justify-between mb-2">
+                        <span id="goldenTimeLabel" class="text-xs font-extrabold text-indigo-800">⏰ 오늘 외출 골든타임 추천</span>
+                        <span id="bestTimeBadge" class="text-xs font-bold bg-indigo-600 text-white px-2.5 py-0.5 rounded-full">14:00 ~ 16:00</span>
+                    </div>
+                    <p id="bestTimeDesc" class="text-xs text-slate-600 font-medium mb-3">
+                        오후 시간대에 대기 확산이 원활해져 공기가 가장 맑을 것으로 예측됩니다.
+                    </p>
+                    <!-- 시간대별 미니 예보 바 -->
+                    <div id="hourlyForecast" class="grid grid-cols-5 gap-1.5 text-center">
+                        <!-- JS로 시간대별 카드 동적 생성 -->
+                    </div>
+                </div>
+
+                <!-- 시뮬레이션 모드 안내 푸터 -->
+                <div class="text-center pt-1">
+                    <p class="text-[11px] text-slate-400">
+                        * 모바일 시연 및 학습용 실시간 분석 시뮬레이터입니다.
+                    </p>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        // 시·도 및 하위 구/측정소 데이터
+        const regionData = {
+            "인천": ["중구", "동구", "미추홀구", "연수구", "남동구", "부평구", "계양구", "서구", "강화군", "옹진군"],
+            "서울": ["종로구", "중구", "용산구", "성동구", "광진구", "동대문구", "중랑구", "성북구", "강남구", "송파구", "마포구"],
+            "경기": ["수원시", "성남시", "의정부시", "안양시", "부천시", "광명시", "평택시", "안산시", "고양시", "용인시"],
+            "부산": ["중구", "서구", "동구", "영도구", "부산진구", "동래구", "남구", "북구", "해운대구", "수영구"],
+            "대구": ["중구", "동구", "서구", "남구", "북구", "수성구", "달서구", "달성군"],
+            "광주": ["동구", "서구", "남구", "북구", "광산구"],
+            "대전": ["동구", "중구", "서구", "유성구", "대덕구"],
+            "울산": ["중구", "남구", "동구", "북구", "울주군"],
+            "세종": ["신흥동", "아름동", "보람동", "조치원읍"],
+            "강원": ["춘천시", "원주시", "강릉시", "동해시", "속초시"],
+            "충북": ["청주시", "충주시", "제천시"],
+            "충남": ["천안시", "공주시", "보령시", "아산시", "서산시"],
+            "전북": ["전주시", "군산시", "익산시", "정읍시"],
+            "전남": ["목포시", "여수시", "순천시", "나주시", "광양시"],
+            "경북": ["포항시", "경주시", "김천시", "안동시", "구미시"],
+            "경남": ["창원시", "진주시", "통영시", "김해시", "거제시"],
+            "제주": ["제주시", "서귀포시"]
+        };
+
+        // 등급 판정 및 스타일 정보 반환 함수
+        function getGradeInfo(value, isPm25 = false) {
+            const val = parseInt(value, 10);
+            if (!isPm25) {
+                if (val <= 30) return { label: "좋음 😊", level: 1, textClass: "text-emerald-600", bgClass: "bg-emerald-50 border-emerald-200", badgeClass: "bg-emerald-100 text-emerald-700" };
+                if (val <= 80) return { label: "보통 🙂", level: 2, textClass: "text-blue-600", bgClass: "bg-blue-50 border-blue-200", badgeClass: "bg-blue-100 text-blue-700" };
+                if (val <= 150) return { label: "나쁨 😷", level: 3, textClass: "text-orange-600", bgClass: "bg-orange-50 border-orange-200", badgeClass: "bg-orange-100 text-orange-700" };
+                return { label: "매우나쁨 😱", level: 4, textClass: "text-red-600", bgClass: "bg-red-50 border-red-200", badgeClass: "bg-red-100 text-red-700" };
+            } else {
+                if (val <= 15) return { label: "좋음 😊", level: 1, textClass: "text-emerald-600", bgClass: "bg-emerald-50 border-emerald-200", badgeClass: "bg-emerald-100 text-emerald-700" };
+                if (val <= 35) return { label: "보통 🙂", level: 2, textClass: "text-blue-600", bgClass: "bg-blue-50 border-blue-200", badgeClass: "bg-blue-100 text-blue-700" };
+                if (val <= 75) return { label: "나쁨 😷", level: 3, textClass: "text-orange-600", bgClass: "bg-orange-50 border-orange-200", badgeClass: "bg-orange-100 text-orange-700" };
+                return { label: "매우나쁨 😱", level: 4, textClass: "text-red-600", bgClass: "bg-red-50 border-red-200", badgeClass: "bg-red-100 text-red-700" };
+            }
+        }
+
+        // 미세먼지/초미세먼지 통합 경고 문구 생성 (둘 중 더 나쁜 기준 적용)
+        function getWarningGuide(pm10, pm25) {
+            const p10 = parseInt(pm10, 10);
+            const p25 = parseInt(pm25, 10);
+
+            // 매우나쁨 기준
+            if (p10 > 150 || p25 > 75) {
+                return {
+                    msg: "🚨 비상! 오늘 야외 활동은 담배 한 갑을 통째로 피우는 것과 같습니다. 외출 절대 금지!",
+                    boxClass: "bg-red-50 border-red-500",
+                    titleClass: "text-red-800"
+                };
+            }
+            // 나쁨 기준
+            if (p10 > 80 || p25 > 35) {
+                return {
+                    msg: "⚠️ 오늘 밖에서 1시간 돌아다니면 담배 반 갑을 피운 것과 같아요! 보건용 마스크 필수!",
+                    boxClass: "bg-orange-50 border-orange-500",
+                    titleClass: "text-orange-800"
+                };
+            }
+            // 좋음 기준 (둘 다 좋음일 때)
+            if (p10 <= 30 && p25 <= 15) {
+                const msgs = [
+                    "✨ 공기 폼 미쳤다! 당장 나가서 산책이나 러닝하고 오세요!",
+                    "✨ 파란 하늘이 감탄을 자아냅니다. 오늘 창문 열고 환기 & 대청소 각!"
+                ];
+                return {
+                    msg: msgs[Math.floor(Math.random() * msgs.length)],
+                    boxClass: "bg-emerald-50 border-emerald-500",
+                    titleClass: "text-emerald-800"
+                };
+            }
+            // 보통 기준
+            const msgs = [
+                "🙂 나쁘지 않아요. 평범한 하루니까 마스크는 가방에 쏙 넣어두기만 하세요.",
+                "🙂 그럭저럭 숨 쉴 만합니다. 눈치 채지 못할 정도로 무난한 공기 상태!"
+            ];
+            return {
+                msg: msgs[Math.floor(Math.random() * msgs.length)],
+                boxClass: "bg-blue-50 border-blue-500",
+                titleClass: "text-blue-800"
+            };
+        }
+
+        // 초기 시·도 드롭다운 세팅
+        function initRegions() {
+            const sidoSelect = document.getElementById('sidoSelect');
+            Object.keys(regionData).forEach(sido => {
+                const opt = document.createElement('option');
+                opt.value = sido;
+                opt.textContent = sido;
+                sidoSelect.appendChild(opt);
+            });
+            sidoSelect.value = "인천"; // 기본값 인천
+            updateStations();
+        }
+
+        // 시·도 변경 시 구/측정소 업데이트
+        function updateStations() {
+            const sido = document.getElementById('sidoSelect').value;
+            const stationSelect = document.getElementById('stationSelect');
+            stationSelect.innerHTML = "";
+
+            const stations = regionData[sido] || [];
+            stations.forEach(st => {
+                const opt = document.createElement('option');
+                opt.value = st;
+                opt.textContent = st;
+                stationSelect.appendChild(opt);
+            });
+        }
+
+        // 조회 버튼 클릭 시 데이터 분석 및 UI 렌더링
+        function fetchDustData() {
+            const sido = document.getElementById('sidoSelect').value;
+            const station = document.getElementById('stationSelect').value;
+
+            // 현실감 있는 랜덤 수치 생성 (좋음~매우나쁨 골고루 체험 가능하도록 구성)
+            const scenarios = [
+                { pm10: Math.floor(Math.random() * 20) + 10, pm25: Math.floor(Math.random() * 10) + 5 },   // 좋음
+                { pm10: Math.floor(Math.random() * 40) + 35, pm25: Math.floor(Math.random() * 15) + 18 },  // 보통
+                { pm10: Math.floor(Math.random() * 55) + 85, pm25: Math.floor(Math.random() * 30) + 40 },  // 나쁨
+                { pm10: Math.floor(Math.random() * 60) + 155, pm25: Math.floor(Math.random() * 40) + 80 }  // 매우나쁨
+            ];
+            const picked = scenarios[Math.floor(Math.random() * scenarios.length)];
+            const pm10Val = picked.pm10;
+            const pm25Val = picked.pm25;
+
+            const pm10Info = getGradeInfo(pm10Val, false);
+            const pm25Info = getGradeInfo(pm25Val, true);
+            const guideInfo = getWarningGuide(pm10Val, pm25Val);
+
+            // 전체 대표 상태 뱃지는 둘 중 더 심각한 등급 기준으로 표시
+            const worstInfo = pm10Info.level >= pm25Info.level ? pm10Info : pm25Info;
+
+            // UI 업데이트
+            document.getElementById('initialState').classList.add('hidden');
+            const reportEl = document.getElementById('reportContent');
+            reportEl.classList.remove('hidden');
+            // 애니메이션 재실행 트릭
+            reportEl.classList.remove('fade-in');
+            void reportEl.offsetWidth;
+            reportEl.classList.add('fade-in');
+
+            document.getElementById('selectedLocationTitle').textContent = `${sido} ${station}`;
+            
+            const badge = document.getElementById('statusBadge');
+            badge.textContent = worstInfo.label;
+            badge.className = `px-3.5 py-1.5 rounded-full text-sm font-bold ${worstInfo.badgeClass}`;
+
+            // PM10 카드 업데이트
+            document.getElementById('pm10Value').textContent = pm10Val;
+            const pm10GradeEl = document.getElementById('pm10Grade');
+            pm10GradeEl.textContent = pm10Info.label;
+            pm10GradeEl.className = `text-sm font-bold mt-1 ${pm10Info.textClass}`;
+            document.getElementById('pm10Card').className = `p-4 rounded-2xl border transition-colors ${pm10Info.bgClass}`;
+
+            // PM2.5 카드 업데이트
+            document.getElementById('pm25Value').textContent = pm25Val;
+            const pm25GradeEl = document.getElementById('pm25Grade');
+            pm25GradeEl.textContent = pm25Info.label;
+            pm25GradeEl.className = `text-sm font-bold mt-1 ${pm25Info.textClass}`;
+            document.getElementById('pm25Card').className = `p-4 rounded-2xl border transition-colors ${pm25Info.bgClass}`;
+
+            // 경고 가이드 박스 업데이트
+            const guideBox = document.getElementById('guideBox');
+            guideBox.className = `p-4 rounded-2xl border-l-4 transition-colors ${guideInfo.boxClass}`;
+            const guideTitle = document.getElementById('guideTitle');
+            guideTitle.className = `flex items-center gap-1.5 text-xs font-extrabold uppercase tracking-wider mb-1.5 ${guideInfo.titleClass}`;
+            document.getElementById('guideMessage').textContent = guideInfo.msg;
+
+            // 시간대별 예보 및 외출 골든타임 계산 업데이트
+            updateBestTimeRecommendation(pm10Val);
+        }
+
+        // 시간대별 예보 생성 및 외출 판정 함수 (나쁨/매우나쁨일 경우 외출 금지 경고)
+        function updateBestTimeRecommendation(currentPm10) {
+            const timeSlots = [
+                { time: "09시", offset: 15 },
+                { time: "12시", offset: 5 },
+                { time: "15시", offset: -5 },
+                { time: "18시", offset: 10 },
+                { time: "21시", offset: 20 }
+            ];
+
+            let minVal = 9999;
+            const hourlyContainer = document.getElementById('hourlyForecast');
+            hourlyContainer.innerHTML = "";
+
+            const forecasts = timeSlots.map(slot => {
+                const randomJitter = Math.floor(Math.random() * 15) - 7;
+                const val = Math.max(12, currentPm10 + slot.offset + randomJitter);
+                if (val < minVal) {
+                    minVal = val;
+                }
+                return { time: slot.time, val: val };
+            });
+
+            const goldenCard = document.getElementById('goldenTimeCard');
+            const bestTimeBadge = document.getElementById('bestTimeBadge');
+            const bestDescEl = document.getElementById('bestTimeDesc');
+            const goldenLabel = document.getElementById('goldenTimeLabel');
+
+            // 💡 핵심 수정: 최저 수치조차 80(나쁨)을 초과하면 골든타임 추천 대신 '외출 금지 경보'로 전환
+            if (minVal > 80) {
+                goldenCard.className = "p-4 rounded-2xl bg-red-50 border border-red-200 transition-colors";
+                goldenLabel.textContent = "🚨 외출 전면 금지 경보";
+                bestTimeBadge.textContent = "종일 위험";
+                bestTimeBadge.className = "text-xs font-bold bg-red-600 text-white px-2.5 py-0.5 rounded-full";
+                
+                if (minVal > 150) {
+                    bestDescEl.textContent = `🛑 전 시간대 수치가 150㎍/㎥을 넘는 극심한 '매우나쁨' 상태입니다. 어떤 시간대든 절대 나가지 말고 실내에 머무세요!`;
+                } else {
+                    bestDescEl.textContent = `⚠️ 하루 종일 공기 상태가 '나쁨' 이상입니다. 그나마 나은 시간대라 해도 외출을 자제하시는 것을 강력히 권장합니다.`;
+                }
+            } else {
+                // 공기가 비교적 안전할 때만 정상적인 골든타임 추천 표시
+                goldenCard.className = "p-4 rounded-2xl bg-indigo-50/70 border border-indigo-100 transition-colors";
+                goldenLabel.textContent = "⏰ 오늘 외출 골든타임 추천";
+                bestTimeBadge.textContent = "최적의 시간";
+                bestTimeBadge.className = "text-xs font-bold bg-indigo-600 text-white px-2.5 py-0.5 rounded-full";
+
+                let bestSlot = forecasts.find(f => f.val === minVal).time;
+                const bestHourNum = parseInt(bestSlot, 10);
+                bestTimeBadge.textContent = `${bestSlot} ~ ${bestHourNum + 2}시`;
+
+                if (minVal <= 30) {
+                    bestDescEl.textContent = `✨ ${bestSlot}경 미세먼지(${minVal}㎍/㎥)가 '좋음' 수준으로 떨어져 산책이나 환기하기 딱 좋아요!`;
+                } else {
+                    bestDescEl.textContent = `🙂 오늘 중에서는 ${bestSlot}경(${minVal}㎍/㎥)이 가장 공기가 무난하니 이때 외출을 추천해요.`;
+                }
+            }
+
+            // 5개 시간대 미니 카드 렌더링
+            forecasts.forEach(item => {
+                const info = getGradeInfo(item.val, false);
+                const isBest = (minVal <= 80 && item.val === minVal);
+                const card = document.createElement('div');
+                card.className = `p-2 rounded-xl border ${isBest ? 'bg-white border-indigo-400 ring-2 ring-indigo-200' : 'bg-white/60 border-slate-200'}`;
+                card.innerHTML = `
+                    <div class="text-[11px] font-bold ${isBest ? 'text-indigo-700' : 'text-slate-500'}">${item.time}</div>
+                    <div class="text-xs font-black mt-0.5 ${info.textClass}">${item.val}</div>
+                    <div class="text-[10px] font-bold mt-0.5 ${info.textClass}">${info.label.split(' ')[0]}</div>
+                `;
+                hourlyContainer.appendChild(card);
+            });
+        }
+
+        // 페이지 로드 시 초기화
+        window.onload = initRegions;
+    </script>
+</body>
+</html>
+```
+eof
+
+---
+
+### 💡 수정 완료!
+이제 미세먼지 수치가 '나쁨'이나 '매우나쁨'으로 심각할 때는 억지로 골든타임을 찾지 않고, 카드 색상이 빨갛게 바뀌며 **"종일 위험하니 절대 나가지 마세요!"**라는 단호한 경고 메시지가 뜨도록 변경했습니다. 우측 **Preview**에서 직접 확인해 보세요!
